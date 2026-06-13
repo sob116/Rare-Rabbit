@@ -47,6 +47,10 @@ async function handleCommand(client, message, args) {
     (await client.db14.get(
       `${message.guild.id}_mediachannels.mediachannellist`,
     )) || [];
+  const mediaBypass =
+    (await client.db14.get(
+      `${message.guild.id}_mediachannels.mediabypasslist`,
+    )) || [];
   const missingBotPerms = command?.BotPerms || [];
 
   if (message.author.bot) return;

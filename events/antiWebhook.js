@@ -1,203 +1,107 @@
 const client = require('../index');
 const { ownerIDS } = require('../dev.json');
 const { WebhookClient, AuditLogEvent, Events } = require('discord.js');
-const config  = require('../config.json');
+const config = require('../config.json');
 
 const webhookClient = new WebhookClient({
   id: config.webid,
-    token: config.webtoken
+  token: config.webtoken
 });
+
+const WEBHOOK_ACTIONS = [
+  { type: AuditLogEvent.WebhookCreate, toggleKey: 'antiwebhookcreate', reason: 'Webhook Create | Not Whitelisted' },
+  { type: AuditLogEvent.WebhookDelete, toggleKey: 'antiwebhookdelete', reason: 'Webhook Delete | Not Whitelisted' },
+  { type: AuditLogEvent.WebhookUpdate, toggleKey: 'antiwebhookupdate', reason: 'Webhook Update | Not Whitelisted' }
+];
 
 async function handleRateLimit() {
   await new Promise((resolve) => setTimeout(resolve, 5000));
 }
 
-async function handleWebhookCreate(webhook) {
+function isExceptionalCase(executorId, ownerId) {
+  return executorId === ownerId || executorId === client.user.id;
+}
 
-  if (!webhook.guild.members.me.permissions.has('ViewAuditLog')) {
+async function punishExecutor(guild, executorId, reason) {
+  if (!guild.members.me.permissions.has('BanMembers')) {
+    sendWebhookError('Bot lacks necessary permissions for ban actions.');
+    return false;
+  }
+
+  const executorMember = await guild.members.fetch(executorId).catch(() => null);
+  if (!executorMember) return false;
+
+  const botMember = guild.members.me;
+  if (executorMember.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return false;
+
+  await guild.members.ban(executorMember.id, { reason });
+  return true;
+}
+
+async function processWebhookAction(channel, action) {
+  const auditLog = await channel.guild.fetchAuditLogs({ limit: 1, type: action.type });
+  const entry = auditLog.entries.first();
+  if (!entry) return;
+
+  const entryAgeMs = Date.now() - entry.createdTimestamp;
+  if (entryAgeMs > 15000) return;
+
+  const { executor, target } = entry;
+  if (!executor) return;
+
+  const whitelistData = await client.db.get(`${channel.guild.id}_wl`);
+  const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
+  const extraOwner = (await client.db11.get(`${channel.guild.id}_eo.extraownerlist`)) || [];
+  const antinuke = await client.db.get(`${channel.guild.id}_${action.toggleKey}`);
+  const autorecovery = await client.db.get(`${channel.guild.id}_autorecovery`);
+
+  if (
+    isExceptionalCase(executor.id, channel.guild.ownerId) ||
+    ownerIDS.includes(executor.id) ||
+    extraOwner.includes(executor.id) ||
+    antinuke !== true ||
+    trusted === true
+  ) {
     return;
   }
 
-  try {
-    const auditLog = await webhook.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.WebhookCreate });
-    const logs = auditLog.entries.first();
-
-    if (!logs) return;
-
-    const { executor, target } = logs;
-
-    const whitelistData = await client.db.get(`${webhook.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${webhook.guild.id}_eo.extraownerlist`);
-    const antinuke = await client.db.get(`${webhook.guild.id}_antiwebhookcreate`);
-    const autorecovery = await client.db.get(`${webhook.guild.id}_autorecovery`);
-
-    if (
-      executor.id === webhook.guild.ownerId ||
-      executor.id === client.user.id ||
-      ownerIDS.includes(executor.id) ||
-      extraOwner.includes(executor.id) ||
-      antinuke !== true ||
-      trusted === true
-    ) return;
-
-    if (!webhook.guild.members.me.permissions.has('ManageWebhooks')) {
-      sendWebhookError('Bot lacks necessary permissions for webhook create actions.');
-      return;
-    }
-
-    if (!webhook.guild.members.me.permissions.has('BanMembers')) {
-      sendWebhookError('Bot lacks necessary permissions for ban actions.');
-      return;
-    }
-
-    const member = await webhook.guild.members.fetch(executor.id);
-    if (!member) return;
-
-    const botMember = webhook.guild.members.me;
-    if (member.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
-
-    await webhook.guild.members.ban(member.id, { reason: 'Channel Delete | Not Whitelisted' });
-
-    if (autorecovery !== true) {
-      await webhook.delete().catch(() => { });
-    }
-  } catch (err) {
-    if (err.code === 429) {
-      await handleRateLimit();
-      return;
-    }
-    sendWebhookError(err);
-  }
-}
-
-async function handleWebhookDelete(webhook) {
-
-  if (!webhook.guild.members.me.permissions.has('ViewAuditLog')) {
+  if (!channel.guild.members.me.permissions.has('ManageWebhooks')) {
+    sendWebhookError('Bot lacks necessary permissions for webhook actions.');
     return;
   }
 
-  try {
-    const auditLog = await webhook.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.WebhookDelete });
-    const logs = auditLog.entries.first();
+  const punished = await punishExecutor(channel.guild, executor.id, action.reason);
+  if (!punished) return;
 
-    if (!logs) return;
-
-    const { executor, target } = logs;
-
-    const whitelistData = await client.db.get(`${webhook.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${webhook.guild.id}_eo.extraownerlist`);
-    const antinuke = await client.db.get(`${webhook.guild.id}_antiwebhookdelete`);
-    const autorecovery = await client.db.get(`${webhook.guild.id}_autorecovery`);
-
-    if (
-      executor.id === webhook.guild.ownerId ||
-      executor.id === client.user.id ||
-      ownerIDS.includes(executor.id) ||
-      extraOwner.includes(executor.id) ||
-      antinuke !== true ||
-      trusted === true
-    ) return;
-
-    if (!webhook.guild.members.me.permissions.has('ManageWebhooks')) {
-      sendWebhookError('Bot lacks necessary permissions for webhook create actions.');
-      return;
+  if (autorecovery === true && action.type === AuditLogEvent.WebhookCreate && target?.id) {
+    const hooks = await channel.fetchWebhooks().catch(() => null);
+    const createdHook = hooks?.get(target.id);
+    if (createdHook) {
+      await createdHook.delete('Anti Webhook Create').catch(() => { });
     }
-
-    if (!webhook.guild.members.me.permissions.has('BanMembers')) {
-      sendWebhookError('Bot lacks necessary permissions for ban actions.');
-      return;
-    }
-
-    const member = await webhook.guild.members.fetch(executor.id);
-    if (!member) return;
-
-    const botMember = webhook.guild.members.me;
-    if (member.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
-
-    await webhook.guild.members.ban(member.id, { reason: 'Channel Delete | Not Whitelisted' });
-
-    if (autorecovery === true) {
-      const webhook = webhook.webhook;
-      const webhookName = webhook.name;
-      const webhookAvatar = webhook.avatar;
-
-      await webhook.createWebhook(webhookName, {
-        avatar: webhookAvatar,
-      });
-    }
-  } catch (err) {
-    if (err.code === 429) {
-      await handleRateLimit();
-      return;
-    }
-    sendWebhookError(err);
   }
 }
 
-async function handleWebhookUpdate(oldWebhook, newWebhook) {
-  try {
-    const auditLog = await newWebhook.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.WebhookUpdate });
-    const logs = auditLog.entries.first();
+async function handleWebhooksUpdate(channel) {
+  if (!channel.guild.members.me.permissions.has('ViewAuditLog')) {
+    return;
+  }
 
-    if (!logs) return;
-
-    const { executor, target } = logs;
-
-    const whitelistData = await client.db.get(`${newWebhook.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${newWebhook.guild.id}_eo.extraownerlist`);
-    const antinuke = await client.db.get(`${newWebhook.guild.id}_antiwebhookupdate`);
-    const autorecovery = await client.db.get(`${newWebhook.guild.id}_autorecovery`);
-
-    if (
-      executor.id === newWebhook.guild.ownerId ||
-      executor.id === client.user.id ||
-      ownerIDS.includes(executor.id) ||
-      extraOwner.includes(executor.id) ||
-      antinuke !== true ||
-      trusted === true
-    ) return;
-
-    if (!newWebhook.guild.members.me.permissions.has('ManageWebhooks')) {
-      sendWebhookError('Bot lacks necessary permissions for webhook create actions.');
-      return;
+  for (const action of WEBHOOK_ACTIONS) {
+    try {
+      await processWebhookAction(channel, action);
+    } catch (err) {
+      if (err.code === 429) {
+        await handleRateLimit();
+        continue;
+      }
+      sendWebhookError(err);
     }
-
-    if (!newWebhook.guild.members.me.permissions.has('BanMembers')) {
-      sendWebhookError('Bot lacks necessary permissions for ban actions.');
-      return;
-    }
-
-    const member = await newWebhook.guild.members.fetch(executor.id);
-    if (!member) return;
-
-    const botMember = newWebhook.guild.members.me;
-    if (member.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
-
-    await newWebhook.guild.members.ban(member.id, { reason: 'Channel Delete | Not Whitelisted' });
-
-    if (autorecovery === true) {
-      await newWebhook.edit({
-        name: oldWebhook.name,
-        avatar: oldWebhook.avatar,
-        channel: oldWebhook.channel,
-      });
-    }
-  } catch (err) {
-    if (err.code === 429) {
-      await handleRateLimit();
-      return;
-    }
-    sendWebhookError(err);
   }
 }
 
 function sendWebhookError(error) {
-  webhookClient.send(error).catch(() => { });
+  webhookClient.send(String(error)).catch(() => { });
 }
 
-client.on(Events.WebhooksUpdate, async (webhook) => handleWebhookCreate(webhook));
-client.on(Events.WebhooksUpdate, async (webhook) => handleWebhookDelete(webhook));
-client.on(Events.WebhooksUpdate, async (oldWebhook, newWebhook) => handleWebhookUpdate(oldWebhook, newWebhook));
+client.on(Events.WebhooksUpdate, async (channel) => handleWebhooksUpdate(channel));

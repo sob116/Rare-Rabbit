@@ -12,20 +12,6 @@ async function handleRateLimit() {
   await new Promise((resolve) => setTimeout(resolve, 5000));
 }
 
-async function handleBan(guild, userId, reason) {
-  if (!hasPermissions(guild.members.me, ['Administrator', 'BanMembers'])) {
-    return;
-  }
-
-  const member = await guild.members.fetch(userId);
-  if (!member) return;
-
-  const botMember = guild.members.me;
-  if (member.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
-
-  await guild.members.ban(userId, { reason });
-}
-
 async function handleRoleCreate(role) {
   try {
     const auditLogs = await role.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.RoleCreate });
@@ -36,8 +22,8 @@ async function handleRoleCreate(role) {
     const { executor, target } = logs;
 
     const whitelistData = await client.db.get(`${role.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${role.guild.id}_eo.extraownerlist`);
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${role.guild.id}_eo.extraownerlist`)) || [];
     const antinuke = await client.db.get(`${role.guild.id}_antirolecreate`);
     const autorecovery = await client.db.get(`${role.guild.id}_autorecovery`);
 
@@ -90,8 +76,8 @@ async function handleRoleDelete(role) {
     const { executor, target } = logs;
 
     const whitelistData = await client.db.get(`${role.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${role.guild.id}_eo.extraownerlist`);
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${role.guild.id}_eo.extraownerlist`)) || [];
     const antinuke = await client.db.get(`${role.guild.id}_antiroledelete`);
     const autorecovery = await client.db.get(`${role.guild.id}_autorecovery`);
 
@@ -152,8 +138,8 @@ async function handleRoleUpdate(oldRole, newRole) {
     const { executor, target } = logs;
 
     const whitelistData = await client.db.get(`${newRole.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${newRole.guild.id}_eo.extraownerlist`);
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${newRole.guild.id}_eo.extraownerlist`)) || [];
     const antinuke = await client.db.get(`${newRole.guild.id}_antiroleupdate`);
     const autorecovery = await client.db.get(`${newRole.guild.id}_autorecovery`);
 
@@ -203,6 +189,10 @@ function isExceptionalCase(executorId, ownerId) {
   return executorId === ownerId || executorId === client.user.id;
 }
 
+function sendWebhookError(error) {
+  webhookClient.send(String(error)).catch(() => { });
+}
+
 client.on(Events.RoleCreate, async (role) => handleRoleCreate(role));
 client.on(Events.RoleDelete, async (role) => handleRoleDelete(role));
-client.on(Events.RoleUpdate, async (newRole, oldRole) => handleRoleUpdate(newRole, oldRole));
+client.on(Events.RoleUpdate, async (oldRole, newRole) => handleRoleUpdate(oldRole, newRole));

@@ -34,8 +34,8 @@ async function handleEmojiCreate(emoji) {
     const { executor } = logs;
 
     const whitelistData = await client.db.get(`${emoji.guild.id}_wl`);
-    const extraOwner = await client.db11.get(`${emoji.guild.id}_eo.extraownerlist`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${emoji.guild.id}_eo.extraownerlist`)) || [];
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
     const antinuke = await client.db.get(`${emoji.guild.id}_antiemojicreate`);
     const autorecovery = await client.db.get(`${emoji.guild.id}_autorecovery`);
 
@@ -91,8 +91,8 @@ async function handleEmojiDelete(emoji) {
     const { executor } = logs;
 
     const whitelistData = await client.db.get(`${emoji.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${emoji.guild.id}_eo.extraownerlist`);
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${emoji.guild.id}_eo.extraownerlist`)) || [];
     const antinuke = await client.db.get(`${emoji.guild.id}_antiemojidelete`);
 
     if (
@@ -144,8 +144,8 @@ async function handleEmojiUpdate(oldEmoji, newEmoji) {
     const { executor } = logs;
 
     const whitelistData = await client.db.get(`${newEmoji.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${newEmoji.guild.id}_eo.extraownerlist`);
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${newEmoji.guild.id}_eo.extraownerlist`)) || [];
     const antinuke = await client.db.get(`${newEmoji.guild.id}_antiemojiupdate`);
     const autorecovery = await client.db.get(`${newEmoji.guild.id}_autorecovery`);
 
@@ -192,7 +192,7 @@ function isExceptionalCase(executorId, ownerId) {
 }
 
 function sendWebhookError(error) {
-  webhookClient.send(error).catch(() => { });
+  webhookClient.send(String(error)).catch(() => { });
 }
 
 client.on(Events.EmojiCreate, async (emoji) => handleEmojiCreate(emoji));

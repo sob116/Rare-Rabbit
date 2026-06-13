@@ -34,13 +34,13 @@ async function handleGuildUpdate(oldGuild, newGuild) {
     const { executor } = logs;
 
     const whitelistData = await client.db.get(`${oldGuild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${newGuild.id}_eo.extraownerlist`);
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${newGuild.id}_eo.extraownerlist`)) || [];
     const antinuke = await client.db.get(`${newGuild.id}_antiguildupdate`);
     const autorecovery = await client.db.get(`${newGuild.id}_autorecovery`);
 
     if (
-      isExceptionalCase(executor.id, guild.ownerId) ||
+      isExceptionalCase(executor.id, newGuild.ownerId) ||
       extraOwner.includes(executor.id) ||
       ownerIDS.includes(executor.id) ||
       antinuke !== true ||
@@ -137,7 +137,7 @@ function hasPermissions(member, permissions) {
 }
 
 function sendWebhookError(error) {
-  webhookClient.send(error).catch(() => { });
+  webhookClient.send(String(error)).catch(() => { });
 }
 
 client.on(Events.GuildUpdate, async (oldGuild, newGuild) => handleGuildUpdate(oldGuild, newGuild));

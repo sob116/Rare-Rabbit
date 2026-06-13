@@ -11,7 +11,8 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
     const logs = auditLogs.entries.first();
     if (!logs) return;
 
-    const { executor, target } = logs;
+    const { executor } = logs;
+    if (!executor) return;
     const extraOwner = await client.db11.get(`${newMember.guild.id}_eo.extraownerlist`) || [];
     const roleData = await client.db15.get(`${newMember.guild.id}_nightmode.nightmoderoleslist`) || [];
     const bypassData = await client.db15.get(`${newMember.guild.id}_nightmode.nightmodebypasslist`) || [];
@@ -28,7 +29,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
         );
     });
 
-    if (newMember.guild.ownerId.includes(executor.id) || ownerIDS.includes(executor.id) || extraOwner.includes(executor.id) || bypassData.includes(executor.id)) return;
+    if (newMember.guild.ownerId === executor.id || ownerIDS.includes(executor.id) || extraOwner.includes(executor.id) || bypassData.includes(executor.id)) return;
 
     if (rolesToRemove.size > 0) {
         await newMember.roles.remove(rolesToRemove);

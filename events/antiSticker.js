@@ -1,60 +1,81 @@
 const { ownerIDS } = require('../dev.json');
 const client = require('../index.js');
 const { WebhookClient, AuditLogEvent, Events } = require('discord.js');
-const config  = require('../config.json');
+const config = require('../config.json');
 
 const webhookClient = new WebhookClient({
   id: config.webid,
-    token: config.webtoken
+  token: config.webtoken
 });
 
 async function handleRateLimit() {
   await new Promise((resolve) => setTimeout(resolve, 5000));
 }
 
+function isExceptionalCase(executorId, ownerId) {
+  return executorId === ownerId || executorId === client.user.id;
+}
+
+async function canActAgainstExecutor(guild, executorId) {
+  const executorMember = await guild.members.fetch(executorId).catch(() => null);
+  if (!executorMember) return null;
+
+  const botMember = guild.members.me;
+  if (executorMember.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) {
+    return null;
+  }
+
+  return executorMember;
+}
+
+async function shouldSkipStickerAction(guild, executorId, toggleKey) {
+  const whitelistData = await client.db.get(`${guild.id}_wl`);
+  const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executorId);
+  const extraOwner = (await client.db11.get(`${guild.id}_eo.extraownerlist`)) || [];
+  const antinuke = await client.db.get(`${guild.id}_${toggleKey}`);
+
+  return (
+    isExceptionalCase(executorId, guild.ownerId) ||
+    ownerIDS.includes(executorId) ||
+    extraOwner.includes(executorId) ||
+    antinuke !== true ||
+    trusted === true
+  );
+}
+
+async function punishExecutor(guild, executorId, reason) {
+  if (!guild.members.me.permissions.has('BanMembers')) {
+    sendWebhookError('Bot lacks necessary permissions for ban actions.');
+    return false;
+  }
+
+  const executorMember = await canActAgainstExecutor(guild, executorId);
+  if (!executorMember) return false;
+
+  await guild.members.ban(executorMember.id, { reason });
+  return true;
+}
+
 async function handleStickerCreate(sticker) {
   try {
     const auditLogs = await sticker.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.StickerCreate });
     const logs = auditLogs.entries.first();
-
     if (!logs) return;
 
-    const { executor, target } = logs;
+    const { executor } = logs;
+    const shouldSkip = await shouldSkipStickerAction(sticker.guild, executor.id, 'antistickercreate');
+    if (shouldSkip) return;
 
-    const whitelistData = await client.db.get(`${sticker.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${sticker.guild.id}_eo.extraownerlist`);
-    const antinuke = await client.db.get(`${sticker.guild.id}_antiroleupdate`);
+    if (!sticker.guild.members.me.permissions.has('ManageEmojisAndStickers')) {
+      sendWebhookError('Bot lacks necessary permissions for sticker actions.');
+      return;
+    }
+
+    const punished = await punishExecutor(sticker.guild, executor.id, 'Sticker Create | Not Whitelisted');
+    if (!punished) return;
+
     const autorecovery = await client.db.get(`${sticker.guild.id}_autorecovery`);
-
-    if (
-      executor.id === sticker.guild.ownerId ||
-      ownerIDS.includes(executor.id) ||
-      executor.id === client.user.id ||
-      extraOwner.includes(executor.id) ||
-      antinuke !== true ||
-      trusted === true
-    ) return;
-
-    if (!newRole.guild.members.me.permissions.has('ManageEmojisAndStickers')) {
-      sendWebhookError('Bot lacks necessary permissions for role create actions.');
-      return;
-    }
-
-    if (!newRole.guild.members.me.permissions.has('BanMembers')) {
-      sendWebhookError('Bot lacks necessary permissions for ban actions.');
-      return;
-    }
-
-    const sticker = await newRole.guild.members.fetch(executor.id);
-    if (!sticker) return;
-
-    const botMember = newRole.guild.members.me;
-    if (sticker.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
-
-    await newRole.guild.members.ban(sticker.id, { reason: 'Role Delete | Not Whitelisted' });
-
-    if (autorecovery !== true) {
+    if (autorecovery === true) {
       await sticker.delete().catch(() => { });
     }
   } catch (err) {
@@ -70,43 +91,30 @@ async function handleStickerDelete(sticker) {
   try {
     const auditLogs = await sticker.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.StickerDelete });
     const logs = auditLogs.entries.first();
-
     if (!logs) return;
 
-    const { executor, target } = logs;
+    const { executor } = logs;
+    const shouldSkip = await shouldSkipStickerAction(sticker.guild, executor.id, 'antistickerdelete');
+    if (shouldSkip) return;
 
-    const antinuke = await client.db.get(`${sticker.guild.id}_antistickerdelete`);
-    const whitelistData = await client.db.get(`${sticker.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${sticker.guild.id}_eo.extraownerlist`);
-
-    if (
-      executor.id === sticker.guild.ownerId ||
-      ownerIDS.includes(executor.id) ||
-      executor.id === client.user.id ||
-      extraOwner.includes(executor.id) ||
-      antinuke !== true ||
-      trusted === true
-    ) return;
-
-    if (!newRole.guild.members.me.permissions.has('ManageEmojisAndStickers')) {
-      sendWebhookError('Bot lacks necessary permissions for role create actions.');
+    if (!sticker.guild.members.me.permissions.has('ManageEmojisAndStickers')) {
+      sendWebhookError('Bot lacks necessary permissions for sticker actions.');
       return;
     }
 
-    if (!newRole.guild.members.me.permissions.has('BanMembers')) {
-      sendWebhookError('Bot lacks necessary permissions for ban actions.');
-      return;
+    const punished = await punishExecutor(sticker.guild, executor.id, 'Sticker Delete | Not Whitelisted');
+    if (!punished) return;
+
+    const autorecovery = await client.db.get(`${sticker.guild.id}_autorecovery`);
+    if (autorecovery === true && sticker.url) {
+      await sticker.guild.stickers.create({
+        file: sticker.url,
+        name: sticker.name,
+        tags: sticker.tags || 'sticker',
+        description: sticker.description || undefined,
+        reason: 'Anti Sticker Delete'
+      }).catch(() => { });
     }
-
-    const sticker = await newRole.guild.members.fetch(executor.id);
-    if (!sticker) return;
-
-    const botMember = newRole.guild.members.me;
-    if (sticker.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
-
-    await newRole.guild.members.ban(sticker.id, { reason: 'Role Delete | Not Whitelisted' });
-
   } catch (err) {
     if (err.code === 429) {
       await handleRateLimit();
@@ -120,63 +128,39 @@ async function handleStickerUpdate(oldSticker, newSticker) {
   try {
     const auditLogs = await newSticker.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.StickerUpdate });
     const logs = auditLogs.entries.first();
-
     if (!logs) return;
 
-    const { executor, target } = logs;
-
-    const antinuke = await client.db.get(`${newSticker.guild.id}_antistickerdelete`);
-    const whitelistData = await client.db.get(`${newSticker.guild.id}_wl`);
-    const extraOwner = await client.db11.get(`${newSticker.guild.id}_eo.extraownerlist`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const autorecovery = await client.db.get(`${newSticker.guild.id}_autorecovery`);
-
-    if (
-      executor.id === sticker.guild.ownerId ||
-      ownerIDS.includes(executor.id) ||
-      executor.id === client.user.id ||
-      extraOwner.includes(executor.id) ||
-      antinuke !== true ||
-      trusted === true
-    ) return;
+    const { executor } = logs;
+    const shouldSkip = await shouldSkipStickerAction(newSticker.guild, executor.id, 'antistickerupdate');
+    if (shouldSkip) return;
 
     if (!newSticker.guild.members.me.permissions.has('ManageEmojisAndStickers')) {
-      sendWebhookError('Bot lacks necessary permissions for role create actions.');
+      sendWebhookError('Bot lacks necessary permissions for sticker actions.');
       return;
     }
 
-    if (!newSticker.guild.members.me.permissions.has('BanMembers')) {
-      sendWebhookError('Bot lacks necessary permissions for ban actions.');
-      return;
-    }
+    const punished = await punishExecutor(newSticker.guild, executor.id, 'Sticker Update | Not Whitelisted');
+    if (!punished) return;
 
-    const sticker = await newSticker.guild.members.fetch(executor.id);
-    if (!sticker) return;
-
-    const botMember = newSticker.guild.members.me;
-    if (sticker.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
-
-    await newSticker.guild.members.ban(sticker.id, { reason: 'Role Delete | Not Whitelisted' });
-
+    const autorecovery = await client.db.get(`${newSticker.guild.id}_autorecovery`);
     if (autorecovery === true) {
-      await newSticker.edit({ name: oldSticker.name }).catch(() => { });
+      await newSticker.edit({
+        name: oldSticker.name,
+        description: oldSticker.description,
+        tags: oldSticker.tags
+      }).catch(() => { });
     }
   } catch (err) {
+    if (err.code === 429) {
+      await handleRateLimit();
+      return;
+    }
     sendWebhookError(err);
   }
 }
 
-function hasPermissions(sticker, permissions) {
-  if (sticker.permissions.has('Administrator')) {
-    return true;
-  }
-
-  const botPermissions = sticker.permissions.toArray();
-  return permissions.every((perm) => botPermissions.includes(perm));
-}
-
 function sendWebhookError(error) {
-  webhookClient.send(error).catch(() => { });
+  webhookClient.send(String(error)).catch(() => { });
 }
 
 client.on(Events.GuildStickerCreate, async (sticker) => handleStickerCreate(sticker));

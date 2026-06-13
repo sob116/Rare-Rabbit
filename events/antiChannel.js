@@ -34,8 +34,8 @@ async function handleChannelCreate(channel) {
     const { executor } = logs;
 
     const whitelistData = await client.db.get(`${channel.guild.id}_wl`);
-    const extraOwner = await client.db11.get(`${channel.guild.id}_eo.extraownerlist`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${channel.guild.id}_eo.extraownerlist`)) || [];
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
     const antinuke = await client.db.get(`${channel.guild.id}_antichannelcreate`);
     const autorecovery = await client.db.get(`${channel.guild.id}_autorecovery`);
 
@@ -91,8 +91,8 @@ async function handleChannelDelete(channel) {
     const { executor } = logs;
 
     const whitelistData = await client.db.get(`${channel.guild.id}_wl`);
-    const extraOwner = await client.db11.get(`${channel.guild.id}_eo.extraownerlist`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${channel.guild.id}_eo.extraownerlist`)) || [];
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
     const antinuke = await client.db.get(`${channel.guild.id}_antichanneldelete`);
     const autorecovery = await client.db.get(`${channel.guild.id}_autorecovery`);
 
@@ -149,9 +149,9 @@ async function handleChannelUpdate(oldChannel, newChannel) {
     const { executor } = logs;
 
     const whitelistData = await client.db.get(`${newChannel.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
     const antinuke = await client.db.get(`${newChannel.guild.id}_antichannelupdate`);
-    const extraOwner = await client.db11.get(`${channel.guild.id}_eo.extraownerlist`);
+    const extraOwner = (await client.db11.get(`${newChannel.guild.id}_eo.extraownerlist`)) || [];
     const autorecovery = await client.db.get(`${newChannel.guild.id}_autorecovery`);
 
     if (
@@ -235,7 +235,7 @@ function isExceptionalCase(executorId, ownerId) {
 }
 
 function sendWebhookError(error) {
-  webhookClient.send(error).catch(() => { });
+  webhookClient.send(String(error)).catch(() => { });
 }
 
 client.on(Events.ChannelCreate, async (channel) => handleChannelCreate(channel));

@@ -20,53 +20,53 @@ async function handleRateLimit() {
   globalCooldown = false;
 }
 
-async function handleGuildBanAdd(member) {
+async function handleGuildBanAdd(ban) {
   try {
     if (globalCooldown) {
       await handleRateLimit();
     }
 
-    const auditLogs = await member.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberBanAdd });
+    const auditLogs = await ban.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberBanAdd });
     const logs = auditLogs.entries.first();
 
     if (!logs) return;
 
     const { executor, target } = logs;
 
-    const whitelistData = await client.db.get(`${member.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${member.guild.id}_eo.extraownerlist`);
-    const antinuke = await client.db.get(`${member.guild.id}_antiban`);
-    const autorecovery = await client.db.get(`${member.guild.id}_autorecovery`);
+    const whitelistData = await client.db.get(`${ban.guild.id}_wl`);
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${ban.guild.id}_eo.extraownerlist`)) || [];
+    const antinuke = await client.db.get(`${ban.guild.id}_antiban`);
+    const autorecovery = await client.db.get(`${ban.guild.id}_autorecovery`);
 
     if (
-      isExceptionalCase(executor.id, member.guild.ownerId) ||
+      isExceptionalCase(executor.id, ban.guild.ownerId) ||
       extraOwner.includes(executor.id) ||
       ownerIDS.includes(executor.id) ||
       antinuke !== true ||
       trusted === true
     ) return;
 
-    if (!member.guild.members.me.permissions.has('ManageRoles')) {
+    if (!ban.guild.members.me.permissions.has('ManageRoles')) {
       sendWebhookError('Bot lacks necessary permissions for member create actions.');
       return;
     }
 
-    if (!member.guild.members.me.permissions.has('BanMembers')) {
+    if (!ban.guild.members.me.permissions.has('BanMembers')) {
       sendWebhookError('Bot lacks necessary permissions for ban actions.');
       return;
     }
 
-    const member = await member.guild.members.fetch(executor.id);
-    if (!member) return;
+    const executorMember = await ban.guild.members.fetch(executor.id);
+    if (!executorMember) return;
 
-    const botMember = member.guild.members.me;
-    if (member.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
+    const botMember = ban.guild.members.me;
+    if (executorMember.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
 
-    await member.guild.members.ban(member.id, { reason: 'Member Delete | Not Whitelisted' });
+    await ban.guild.members.ban(executorMember.id, { reason: 'Member Delete | Not Whitelisted' });
 
     if (autorecovery === true) {
-      await member.guild.members.unban(target.id).catch((_) => { });
+      await ban.guild.members.unban(target.id).catch((_) => { });
     }
   } catch (err) {
     if (err.code === 429) {
@@ -77,53 +77,53 @@ async function handleGuildBanAdd(member) {
   }
 }
 
-async function handleGuildBanRemove(member) {
+async function handleGuildBanRemove(ban) {
   try {
     if (globalCooldown) {
       await handleRateLimit();
     }
 
-    const auditLogs = await member.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberBanRemove });
+    const auditLogs = await ban.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberBanRemove });
     const logs = auditLogs.entries.first();
 
     if (!logs) return;
 
     const { executor, target } = logs;
 
-    const whitelistData = await client.db.get(`${member.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${member.guild.id}_eo.extraownerlist`);
-    const antinuke = await client.db.get(`${member.guild.id}_antiunban`);
-    const autorecovery = await client.db.get(`${member.guild.id}_autorecovery`);
+    const whitelistData = await client.db.get(`${ban.guild.id}_wl`);
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${ban.guild.id}_eo.extraownerlist`)) || [];
+    const antinuke = await client.db.get(`${ban.guild.id}_antiunban`);
+    const autorecovery = await client.db.get(`${ban.guild.id}_autorecovery`);
 
     if (
-      isExceptionalCase(executor.id, member.guild.ownerId) ||
+      isExceptionalCase(executor.id, ban.guild.ownerId) ||
       extraOwner.includes(executor.id) ||
       ownerIDS.includes(executor.id) ||
       antinuke !== true ||
       trusted === true
     ) return;
 
-    if (!member.guild.members.me.permissions.has('ManageRoles')) {
+    if (!ban.guild.members.me.permissions.has('ManageRoles')) {
       sendWebhookError('Bot lacks necessary permissions for member create actions.');
       return;
     }
 
-    if (!member.guild.members.me.permissions.has('BanMembers')) {
+    if (!ban.guild.members.me.permissions.has('BanMembers')) {
       sendWebhookError('Bot lacks necessary permissions for ban actions.');
       return;
     }
 
-    const member = await member.guild.members.fetch(executor.id);
-    if (!member) return;
+    const executorMember = await ban.guild.members.fetch(executor.id);
+    if (!executorMember) return;
 
-    const botMember = member.guild.members.me;
-    if (member.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
+    const botMember = ban.guild.members.me;
+    if (executorMember.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
 
-    await member.guild.members.ban(member.id, { reason: 'Member Delete | Not Whitelisted' });
+    await ban.guild.members.ban(executorMember.id, { reason: 'Member Delete | Not Whitelisted' });
 
     if (autorecovery === true) {
-      await member.guild.members.ban(target.id, {
+      await ban.guild.members.ban(target.id, {
         reason: 'Anti Member Unban'
       }).catch((_) => { });
     }
@@ -136,55 +136,55 @@ async function handleGuildBanRemove(member) {
   }
 }
 
-async function handleGuildMemberAdd(member) {
+async function handleGuildMemberAdd(joinedMember) {
   try {
     if (globalCooldown) {
       await handleRateLimit();
     }
 
-    const auditLogs = await member.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.BotAdd });
+    const auditLogs = await joinedMember.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.BotAdd });
     const logs = auditLogs.entries.first();
 
     if (!logs) return;
 
     const { executor, target } = logs;
 
-    const whitelistData = await client.db.get(`${member.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${member.guild.id}_eo.extraownerlist`);
-    const antinuke = await client.db.get(`${member.guild.id}_antibot`);
-    const autorecovery = await client.db.get(`${member.guild.id}_autorecovery`);
+    const whitelistData = await client.db.get(`${joinedMember.guild.id}_wl`);
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${joinedMember.guild.id}_eo.extraownerlist`)) || [];
+    const antinuke = await client.db.get(`${joinedMember.guild.id}_antibot`);
+    const autorecovery = await client.db.get(`${joinedMember.guild.id}_autorecovery`);
 
     if (
-      isExceptionalCase(executor.id, member.guild.ownerId) ||
+      isExceptionalCase(executor.id, joinedMember.guild.ownerId) ||
       extraOwner.includes(executor.id) ||
       ownerIDS.includes(executor.id) ||
       !target.bot ||
       antinuke !== true ||
       trusted === true ||
-      target.id !== member.id
+      target.id !== joinedMember.id
     ) return;
 
-    if (!member.guild.members.me.permissions.has('ManageRoles')) {
+    if (!joinedMember.guild.members.me.permissions.has('ManageRoles')) {
       sendWebhookError('Bot lacks necessary permissions for member create actions.');
       return;
     }
 
-    if (!member.guild.members.me.permissions.has('BanMembers')) {
+    if (!joinedMember.guild.members.me.permissions.has('BanMembers')) {
       sendWebhookError('Bot lacks necessary permissions for ban actions.');
       return;
     }
 
-    const member = await member.guild.members.fetch(executor.id);
-    if (!member) return;
+    const executorMember = await joinedMember.guild.members.fetch(executor.id);
+    if (!executorMember) return;
 
-    const botMember = member.guild.members.me;
-    if (member.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
+    const botMember = joinedMember.guild.members.me;
+    if (executorMember.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
 
-    await member.guild.members.ban(member.id, { reason: 'Member Delete | Not Whitelisted' });
+    await joinedMember.guild.members.ban(executorMember.id, { reason: 'Member Delete | Not Whitelisted' });
 
     if (autorecovery === true) {
-      await member.guild.members.ban(target.id, {
+      await joinedMember.guild.members.ban(target.id, {
         reason: 'Illegal Bot | Not Whitelisted'
       }).catch((_) => { });
     }
@@ -197,50 +197,50 @@ async function handleGuildMemberAdd(member) {
   }
 }
 
-async function handleGuildMemberRemove(member) {
+async function handleGuildMemberRemove(removedMember) {
   try {
     if (globalCooldown) {
       await handleRateLimit();
     }
 
-    const auditLogs = await member.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberKick });
+    const auditLogs = await removedMember.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberKick });
     const logs = auditLogs.entries.first();
 
     if (!logs) return;
 
     const { executor, target } = logs;
 
-    const whitelistData = await client.db.get(`${member.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${member.guild.id}_eo.extraownerlist`);
-    const antinuke = await client.db.get(`${member.guild.id}_antikick`);
+    const whitelistData = await client.db.get(`${removedMember.guild.id}_wl`);
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${removedMember.guild.id}_eo.extraownerlist`)) || [];
+    const antinuke = await client.db.get(`${removedMember.guild.id}_antikick`);
 
     if (
-      isExceptionalCase(executor.id, member.guild.ownerId) ||
+      isExceptionalCase(executor.id, removedMember.guild.ownerId) ||
       extraOwner.includes(executor.id) ||
       ownerIDS.includes(executor.id) ||
-      member.id !== target.id ||
+      removedMember.id !== target.id ||
       antinuke !== true ||
       trusted === true
     ) return;
 
-    if (!member.guild.members.me.permissions.has('ManageRoles')) {
+    if (!removedMember.guild.members.me.permissions.has('ManageRoles')) {
       sendWebhookError('Bot lacks necessary permissions for member create actions.');
       return;
     }
 
-    if (!member.guild.members.me.permissions.has('BanMembers')) {
+    if (!removedMember.guild.members.me.permissions.has('BanMembers')) {
       sendWebhookError('Bot lacks necessary permissions for ban actions.');
       return;
     }
 
-    const member = await member.guild.members.fetch(executor.id);
-    if (!member) return;
+    const executorMember = await removedMember.guild.members.fetch(executor.id);
+    if (!executorMember) return;
 
-    const botMember = member.guild.members.me;
-    if (member.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
+    const botMember = removedMember.guild.members.me;
+    if (executorMember.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
 
-    await member.guild.members.ban(member.id, { reason: 'Member Delete | Not Whitelisted' });
+    await removedMember.guild.members.ban(executorMember.id, { reason: 'Member Delete | Not Whitelisted' });
 
   } catch (err) {
     if (err.code === 429) {
@@ -251,47 +251,47 @@ async function handleGuildMemberRemove(member) {
   }
 }
 
-async function handleGuildMemberPrune(member) {
+async function handleGuildMemberPrune(chunk) {
 
-  if (!member.guild.members.me.permissions.has('ViewAuditLog')) {
+  if (!chunk.guild.members.me.permissions.has('ViewAuditLog')) {
     return;
   }
 
   try {
-    const auditLogs = await member.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberPrune });
+    const auditLogs = await chunk.guild.fetchAuditLogs({ limit: 1, type: AuditLogEvent.MemberPrune });
     const logs = auditLogs.entries.first();
 
     if (!logs) return;
 
     const { executor } = logs;
 
-    const antinuke = await client.db.get(`${member.guild.id}_antiprune`);
-    const extraOwner = await client.db11.get(`${member.guild.id}_eo.extraownerlist`);
+    const antinuke = await client.db.get(`${chunk.guild.id}_antiprune`);
+    const extraOwner = (await client.db11.get(`${chunk.guild.id}_eo.extraownerlist`)) || [];
 
     if (
-      isExceptionalCase(executor.id, member.guild.ownerId) ||
+      isExceptionalCase(executor.id, chunk.guild.ownerId) ||
       extraOwner.includes(executor.id) ||
       ownerIDS.includes(executor.id) ||
       antinuke !== true
     ) return;
 
-    if (!member.guild.members.me.permissions.has('ManageRoles')) {
+    if (!chunk.guild.members.me.permissions.has('ManageRoles')) {
       sendWebhookError('Bot lacks necessary permissions for member create actions.');
       return;
     }
 
-    if (!member.guild.members.me.permissions.has('BanMembers')) {
+    if (!chunk.guild.members.me.permissions.has('BanMembers')) {
       sendWebhookError('Bot lacks necessary permissions for ban actions.');
       return;
     }
 
-    const member = await member.guild.members.fetch(executor.id);
-    if (!member) return;
+    const executorMember = await chunk.guild.members.fetch(executor.id);
+    if (!executorMember) return;
 
-    const botMember = member.guild.members.me;
-    if (member.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
+    const botMember = chunk.guild.members.me;
+    if (executorMember.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
 
-    await member.guild.members.ban(member.id, { reason: 'Member Delete | Not Whitelisted' });
+    await chunk.guild.members.ban(executorMember.id, { reason: 'Member Delete | Not Whitelisted' });
 
   } catch (err) {
     sendWebhookError(err);
@@ -308,13 +308,16 @@ async function handleGuildMemberUpdate(oldMember, newMember) {
     const { executor, target } = logs;
 
     const whitelistData = await client.db.get(`${newMember.guild.id}_wl`);
-    const trusted = whitelistData?.whitelisted.includes(executor.id);
-    const extraOwner = await client.db11.get(`${newMember.guild.id}_eo.extraownerlist`);
+    const trusted = Array.isArray(whitelistData?.whitelisted) && whitelistData.whitelisted.includes(executor.id);
+    const extraOwner = (await client.db11.get(`${newMember.guild.id}_eo.extraownerlist`)) || [];
     const antinuke = await client.db.get(`${newMember.guild.id}_antimemberupdate`);
     const autorecovery = await client.db.get(`${newMember.guild.id}_autorecovery`);
     const executorMember = newMember.guild.members.cache.get(executor.id);
 
-    if (!executorMember.permissions.has('ManageRoles') && !executorMember.permissions.has('Administrator')) {
+    if (
+      !executorMember ||
+      (!executorMember.permissions.has('ManageRoles') && !executorMember.permissions.has('Administrator'))
+    ) {
       return;
     }
 
@@ -340,7 +343,7 @@ async function handleGuildMemberUpdate(oldMember, newMember) {
     if (!member) return;
 
     const botMember = newMember.guild.members.me;
-    if (newMember.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
+    if (member.roles.highest.comparePositionTo(botMember.roles.highest) >= 0) return;
 
     await newMember.guild.members.ban(member.id, { reason: 'Member Delete | Not Whitelisted' });
 
@@ -357,7 +360,7 @@ function isExceptionalCase(executorId, ownerId) {
 }
 
 function sendWebhookError(error) {
-  webhookClient.send(error).catch(() => { });
+  webhookClient.send(String(error)).catch(() => { });
 }
 
 client.on(Events.GuildBanAdd, async (member) => handleGuildBanAdd(member));
