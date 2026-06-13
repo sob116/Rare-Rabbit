@@ -52,7 +52,7 @@ async function handleCommand(client, message, args) {
   if (message.author.bot) return;
   if (!command) return;
 
-  if (mediaChannels.includes(channelId) && !mediaBypass.includes(message.author.id)) return;
+  if (mediaChannels.includes(channelId)) return;
 
   if (
     ignoreChannels.includes(channelId) &&
@@ -162,7 +162,7 @@ client.on("messageCreate", async (message) => {
 
     const prefix = await getPrefix(message.guild.id);
     const data = await client.db4.get(`members_np`);
-    const noprefixed = data.noprefixlist;
+    const noprefixed = data?.noprefixlist || [];
     const np = [...noprefixed];
 
     const args = getCommandAndArgs(message, prefix, noprefixed, np);

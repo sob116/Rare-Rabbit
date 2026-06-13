@@ -28,7 +28,7 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
         );
     });
 
-    if (newMember.guild.ownerId.includes(executor.id) || ownerIDS.includes(executor.id) || extraOwner.includes(executor.id) || bypassData.includes(executor.id)) return;
+    if (newMember.guild.ownerId === executor.id || ownerIDS.includes(executor.id) || extraOwner.includes(executor.id) || bypassData.includes(executor.id)) return;
 
     if (rolesToRemove.size > 0) {
         await newMember.roles.remove(rolesToRemove);

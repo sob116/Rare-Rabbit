@@ -417,12 +417,12 @@ module.exports = {
 
     switch (args[0]) {
       case undefined:
-        if (!message.guild.ownerId.includes(message.author.id) && !ownerIDS.includes(message.author.id) && !extraOwner.includes(message.author.id)) {
+        if (message.guild.ownerId !== message.author.id && !ownerIDS.includes(message.author.id) && !extraOwner.includes(message.author.id)) {
           return message.channel.send({ content: `Only Server Owner and Extra Owners Can Use This Command.` });
         }
         return message.channel.send({ embeds: [guide] });
       case 'owner':
-        if (!message.guild.ownerId.includes(message.author.id) && !ownerIDS.includes(message.author.id)) {
+        if (message.guild.ownerId !== message.author.id && !ownerIDS.includes(message.author.id)) {
           return message.channel.send({ content: `Only Server Owner Can Use This Command.` });
         }
         if (args[1] === 'add') {
@@ -436,7 +436,7 @@ module.exports = {
         }
         break;
       case 'admin':
-        if (!message.guild.ownerId.includes(message.author.id) && !ownerIDS.includes(message.author.id) && !extraOwner.includes(message.author.id)) {
+        if (message.guild.ownerId !== message.author.id && !ownerIDS.includes(message.author.id) && !extraOwner.includes(message.author.id)) {
           return message.channel.send({ content: `Only Server Owner and Extra Owners Can Use This Command.` });
         }
         if (args[1] === 'add') {
