@@ -1,8 +1,8 @@
 {
-  "ownerIDS": ["747321055319949312"],
-  "EvalAccess": ["747321055319949312"],
-  "BadgeAccess": ["747321055319949312"],
-  "NoPrefixAccess": ["747321055319949312"],
-  "BlacklistAccess": ["747321055319949312"],
-  "PremiumAccess": ["747321055319949312"]
+  "ownerIDS": [],
+  "EvalAccess": [],
+  "BadgeAccess": [],
+  "NoPrefixAccess": [],
+  "BlacklistAccess": [],
+  "PremiumAccess": []
 }
