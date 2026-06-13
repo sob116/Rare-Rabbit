@@ -1,242 +1,154 @@
-const { PermissionsBitField, InteractionType, EmbedBuilder } = require("discord.js");
-const client = require('../index');
-
-const ytsr = require("@distube/ytsr");
-const { bot: st } = require("../settings");
+const { InteractionType, PermissionsBitField } = require("discord.js");
+const client = require("../index");
 const { ownerIDS } = require("../dev.json");
-const SEARCH_DEFAULT = "youtube"
+const { getCommandPermissions } = require("../handler/commandMetadata");
 
 function isServerOwnerOrBotOwner(interaction) {
-	return (
-		interaction.member.id === interaction.guild?.ownerId ||
-		ownerIDS.includes(interaction.member.id)
-	);
+  return (
+    interaction.user.id === interaction.guild?.ownerId ||
+    ownerIDS.includes(interaction.user.id)
+  );
 }
 
 function getReadablePermissions(permissions) {
-	return permissions.map((perm) => `\`${perm}\``).join(", ");
+  return permissions.map((perm) => `\`${perm}\``).join(", ");
 }
 
 function isUserAboveBotRole(interaction) {
-	const botRolePosition = interaction.guild.members.me.roles.highest.position;
-	const userRolePosition = interaction.member.roles.highest.position;
-	return userRolePosition > botRolePosition;
+  const botRolePosition = interaction.guild.members.me.roles.highest.position;
+  const userRolePosition = interaction.member.roles.highest.position;
+  return userRolePosition > botRolePosition;
 }
 
 async function isUserInBlacklist(client, ID) {
-	const data = await client.db4.get(`members_bl`);
-	return !!data && !!data.blacklist && data.blacklist.includes(ID);
+  const data = await client.db4.get(`members_bl`);
+  return !!data && !!data.blacklist && data.blacklist.includes(ID);
 }
 
 async function handleCommand(client, interaction) {
-	let slashCommand = client.slashCommands.get(interaction.commandName);
-	const extraOwner = (await client.db11.get(`${interaction.guild.id}_eo.extraownerlist`)) || [];
-	const extraAdmin = (await client.db11.get(`${interaction.guild.id}_ea.extraadminlist`)) || [];
-	const premium = await client.db12.get(`${interaction.guild.id}_premium.active`);
+  const slashCommand = client.slashCommands.get(interaction.commandName);
+  if (!slashCommand || interaction.user.bot) return;
 
-	const userHasAdminPerm = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator);
-	const botHasAdminPerm = interaction.guild.members.me.permissions.has(PermissionsBitField.Flags.Administrator);
-	const channelId = interaction.channel.id;
-	const ignoreChannels = (await client.db10.get(`${interaction.guild.id}_ic.ignorechannellist`)) || [];
-	const ignoreBypass = (await client.db10.get(`${interaction.guild.id}_ic.ignorebypasslist`)) || [];
-	const mediaChannels = (await client.db14.get(`${interaction.guild.id}_mediachannels.mediachannellist`)) || [];
+  const { userPerms: missingUserPerms, botPerms: missingBotPerms } =
+    getCommandPermissions(slashCommand);
+  const extraOwner =
+    (await client.db11.get(`${interaction.guild.id}_eo.extraownerlist`)) || [];
+  const extraAdmin =
+    (await client.db11.get(`${interaction.guild.id}_ea.extraadminlist`)) || [];
+  const channelId = interaction.channel.id;
+  const ignoreChannels =
+    (await client.db10.get(`${interaction.guild.id}_ic.ignorechannellist`)) || [];
+  const ignoreBypass =
+    (await client.db10.get(`${interaction.guild.id}_ic.ignorebypasslist`)) || [];
+  const mediaChannels =
+    (await client.db14.get(
+      `${interaction.guild.id}_mediachannels.mediachannellist`,
+    )) || [];
 
-	if (interaction.member.bot) return;
-	if (!slashCommand) return;
+  if (
+    slashCommand.serverOwnerOnly &&
+    !isServerOwnerOrBotOwner(interaction) &&
+    !extraOwner.includes(interaction.user.id)
+  ) {
+    return interaction.reply(
+      "This command can only be used by the server owner or extra owners.",
+    );
+  }
 
-	if (slashCommand) {
-		if (slashCommand.botOwner && !isServerOwnerOrBotOwner(interaction)) {
-			return interaction.reply("This command can only be used by the bot owner.");
-		}
+  if (
+    missingBotPerms.length > 0 &&
+    !interaction.guild.members.me.permissions.has(missingBotPerms)
+  ) {
+    return interaction.reply(
+      `I need ${getReadablePermissions(
+        missingBotPerms,
+      )} permission(s) to execute this command.`,
+    );
+  }
 
-		if (
-			slashCommand.serverOwnerOnly &&
-			!isServerOwnerOrBotOwner(interaction) &&
-			!extraOwner.includes(interaction.member.id)
-		) {
-			return interaction.reply("This command can only be used by the server owner or extra owners.");
-		}
+  if (
+    !isServerOwnerOrBotOwner(interaction) &&
+    !extraOwner.includes(interaction.user.id) &&
+    !extraAdmin.includes(interaction.user.id) &&
+    missingUserPerms.length > 0 &&
+    !interaction.member.permissions.has(missingUserPerms)
+  ) {
+    return interaction.reply(
+      `You need ${getReadablePermissions(
+        missingUserPerms,
+      )} permission(s) to use this command.`,
+    );
+  }
 
-		if (
-			!isServerOwnerOrBotOwner(interaction) &&
-			userHasAdminPerm &&
-			botHasAdminPerm &&
-			!slashCommand.aboveRole &&
-			!extraOwner.includes(interaction.member.id) &&
-			!extraAdmin.includes(interaction.member.id)
-		) {
-			if (slashCommand) {
-				if (mediaChannels.includes(channelId)) return;
-				if (
-					ignoreChannels.includes(channelId) &&
-					!ignoreBypass.includes(interaction.member.id)
-				) {
-					const ignoreMessage = await interaction.reply(
-						"This channel is in my ignore list. You cannot use commands here."
-					);
-					setTimeout(() => ignoreMessage.delete().catch(console.error), 5000);
-					return;
-				}
-			}
-			await slashCommand.execute(client, interaction);
-			return;
-		}
+  if (
+    slashCommand.aboveRole &&
+    !isUserAboveBotRole(interaction) &&
+    !isServerOwnerOrBotOwner(interaction) &&
+    !extraOwner.includes(interaction.user.id)
+  ) {
+    return interaction.reply(
+      "You need a role higher than the bot's role to use this command.",
+    );
+  }
 
-		if (
-			!isServerOwnerOrBotOwner(interaction) &&
-			botHasAdminPerm &&
-			!extraOwner.includes(interaction.member.id) &&
-			!extraAdmin.includes(interaction.member.id)
-		) {
-			const missingUserPerms = slashCommand.UserPerms || [];
+  if (mediaChannels.includes(channelId)) return;
 
-			if (
-				missingUserPerms.length > 0 &&
-				!interaction.member.permissions.has(missingUserPerms)
-			) {
-				return interaction.reply(
-					`You need ${getReadablePermissions(missingUserPerms)} permission(s) to use this command.`
-				);
-			}
+  if (
+    ignoreChannels.includes(channelId) &&
+    !ignoreBypass.includes(interaction.user.id)
+  ) {
+    const ignoreMessage = await interaction.reply(
+      "This channel is in my ignore list. You cannot use commands here.",
+    );
+    setTimeout(() => ignoreMessage.delete().catch(console.error), 5000);
+    return;
+  }
 
-			if (slashCommand.aboveRole && !isUserAboveBotRole(interaction)) {
-				return interaction.reply("You need a role higher than the bot's role to use this command.");
-			}
-
-			if (slashCommand) {
-				if (mediaChannels.includes(channelId)) return;
-				if (
-					ignoreChannels.includes(channelId) &&
-					!ignoreBypass.includes(interaction.member.id)
-				) {
-					const ignoreMessage = await interaction.reply(
-						"This channel is in my ignore list. You cannot use commands here."
-					);
-					setTimeout(() => ignoreMessage.delete().catch(console.error), 5000);
-					return;
-				}
-			}
-			await slashCommand.execute(client, interaction);
-			return;
-		}
-
-		if (
-			!isServerOwnerOrBotOwner(interaction) &&
-			userHasAdminPerm &&
-			!extraOwner.includes(interaction.member.id) &&
-			!extraAdmin.includes(interaction.member.id)
-		) {
-			const missingBotPerms = slashCommand.BotPerms || [];
-
-			if (
-				missingBotPerms.length > 0 &&
-				!interaction.guild.members.me.permissions.has(missingBotPerms)
-			) {
-				return interaction.reply(
-					`I need ${getReadablePermissions(missingBotPerms)} permission(s) to execute this command.`
-				);
-			}
-
-			if (slashCommand.aboveRole && !isUserAboveBotRole(interaction)) {
-				return interaction.reply("You need a role higher than the bot's role to use this command.");
-			}
-
-			if (slashCommand) {
-				if (mediaChannels.includes(channelId)) return;
-				if (
-					ignoreChannels.includes(channelId) &&
-					!ignoreBypass.includes(interaction.member.id)
-				) {
-					const ignoreMessage = await interaction.reply(
-						"This channel is in my ignore list. You cannot use commands here."
-					);
-					setTimeout(() => ignoreMessage.delete().catch(console.error), 5000);
-					return;
-				}
-			}
-			await slashCommand.execute(client, interaction);
-			return;
-		}
-
-		if (
-			!isServerOwnerOrBotOwner(interaction) &&
-			!extraOwner.includes(interaction.member.id) &&
-			!extraAdmin.includes(interaction.member.id)
-		) {
-			const missingUserPerms = slashCommand.UserPerms || [];
-			const missingBotPerms = slashCommand.BotPerms || [];
-			let missingPermsMessage = "";
-
-			if (
-				missingUserPerms.length > 0 &&
-				!interaction.member.permissions.has(missingUserPerms)
-			) {
-				missingPermsMessage += `You need ${getReadablePermissions(missingUserPerms)} permission(s) to use this command.\n`;
-			}
-
-			if (
-				missingBotPerms.length > 0 &&
-				!interaction.guild.members.me.permissions.has(missingBotPerms)
-			) {
-				missingPermsMessage += `I need ${getReadablePermissions(missingBotPerms)} permission(s) to execute this command.\n`;
-			}
-
-			if (slashCommand.aboveRole && !isUserAboveBotRole(interaction)) {
-				missingPermsMessage += "You need a role higher than the bot's role to use this command.\n";
-			}
-
-			if (missingPermsMessage.trim() !== "") {
-				return interaction.reply(missingPermsMessage);
-			}
-		}
-
-		if (slashCommand) {
-			if (mediaChannels.includes(channelId)) return;
-			if (
-				ignoreChannels.includes(channelId) &&
-				!ignoreBypass.includes(interaction.member.id)
-			) {
-				const ignoreMessage = await interaction.reply(
-					"This channel is in my ignore list. You cannot use commands here."
-				);
-				setTimeout(() => ignoreMessage.delete().catch(console.error), 5000);
-				return;
-			}
-			await slashCommand.execute(client, interaction);
-		}
-	}
+  await slashCommand.execute(client, interaction);
 }
 
 function isBotOrDM(interaction) {
-	return interaction.member.bot || !interaction.guild;
+  return interaction.user?.bot || !interaction.guild;
 }
 
-client.on('interactionCreate', async (interaction) => {
-	if (!interaction.isCommand()) return;
-	if (isBotOrDM(interaction)) return;
+client.on("interactionCreate", async (interaction) => {
+  const isAutocomplete =
+    interaction.type === InteractionType.ApplicationCommandAutocomplete;
 
-	if (!interaction.guild.members.me.permissionsIn(interaction.channel).has("SEND_MESSAGES")) {
-		return;
-	}
+  if (!interaction.isChatInputCommand() && !isAutocomplete) return;
+  if (isBotOrDM(interaction)) return;
 
-	const isBlacklisted = await isUserInBlacklist(client, interaction.member.id);
-	if (isBlacklisted) return;
+  if (
+    !interaction.guild.members.me
+      .permissionsIn(interaction.channel)
+      .has(PermissionsBitField.Flags.SendMessages)
+  ) {
+    return;
+  }
 
-	try {
-		const command = client.commands.get(interaction.commandName);
-		if (command) {
-			if (interaction.type === InteractionType.ApplicationCommandAutocomplete) {
-				if (command.name === 'play') {
-					await command.autocomplete(interaction);
-				}
-			} else {
-				await command.execute(client, interaction);
-			}
-		} else {
-			await handleCommand(client, interaction);
-		}
-	} catch (error) {
-		console.error(error);
-		await interaction.reply({ content: 'There was an error while executing this command!', ephemeral: true });
-	}
+  const isBlacklisted = await isUserInBlacklist(client, interaction.user.id);
+  if (isBlacklisted) return;
+
+  try {
+    const slashCommand = client.slashCommands.get(interaction.commandName);
+    if (!slashCommand) return;
+
+    if (isAutocomplete) {
+      if (typeof slashCommand.autocomplete === "function") {
+        await slashCommand.autocomplete(interaction);
+      }
+      return;
+    }
+
+    await handleCommand(client, interaction);
+  } catch (error) {
+    console.error(error);
+
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({
+        content: "There was an error while executing this command!",
+        ephemeral: true,
+      });
+    }
+  }
 });

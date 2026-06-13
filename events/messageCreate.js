@@ -1,7 +1,7 @@
 const client = require("../index.js");
 const st = require("../settings").bot;
 const { ownerIDS } = require("../dev.json");
-const { PermissionsBitField } = require("discord.js");
+const { getCommandPermissions } = require("../handler/commandMetadata");
 
 function isServerOwnerOrBotOwner(message) {
   return (
@@ -32,12 +32,14 @@ async function handleCommand(client, message, args) {
 
   let command =
     client.commands.get(cmd) || client.commands.get(client.aliases.get(cmd));
+  if (!command) return;
+
+  const { userPerms: missingUserPerms, botPerms: missingBotPerms } =
+    getCommandPermissions(command);
   const extraOwner =
     (await client.db11.get(`${message.guild.id}_eo.extraownerlist`)) || [];
   const extraAdmin =
     (await client.db11.get(`${message.guild.id}_ea.extraadminlist`)) || [];
-  const userHasAdminPerm = message.member.permissions.has(PermissionsBitField.Flags.Administrator);
-  const botHasAdminPerm = message.guild.members.me.permissions.has(PermissionsBitField.Flags.Administrator);
   const channelId = message.channel.id;
   const ignoreChannels =
     (await client.db10.get(`${message.guild.id}_ic.ignorechannellist`)) || [];
@@ -47,10 +49,9 @@ async function handleCommand(client, message, args) {
     (await client.db14.get(
       `${message.guild.id}_mediachannels.mediachannellist`,
     )) || [];
-  const missingBotPerms = command?.BotPerms || [];
+  const mediaBypass = [];
 
   if (message.author.bot) return;
-  if (!command) return;
 
   if (mediaChannels.includes(channelId) && !mediaBypass.includes(message.author.id)) return;
 
@@ -88,13 +89,9 @@ async function handleCommand(client, message, args) {
 
   if (
     !isServerOwnerOrBotOwner(message) &&
-    botHasAdminPerm &&
-    !userHasAdminPerm &&
     !extraOwner.includes(message.author.id) &&
     !extraAdmin.includes(message.author.id)
   ) {
-    const missingUserPerms = command.UserPerms || [];
-
     if (
       missingUserPerms.length > 0 &&
       !message.member.permissions.has(missingUserPerms)
@@ -162,7 +159,7 @@ client.on("messageCreate", async (message) => {
 
     const prefix = await getPrefix(message.guild.id);
     const data = await client.db4.get(`members_np`);
-    const noprefixed = data.noprefixlist;
+    const noprefixed = data?.noprefixlist || [];
     const np = [...noprefixed];
 
     const args = getCommandAndArgs(message, prefix, noprefixed, np);
