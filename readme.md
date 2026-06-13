@@ -53,7 +53,21 @@ Rare Rabbit is an all-in-one Discord bot designed to elevate your server with AI
    ```
 
 4. **Set Up Your Environment**  
-   Configure the `config.js and settings.js` file with your bot credentials
+   Configure credentials with environment variables or an untracked `config.local.json` file. Do not commit live Discord tokens, MongoDB URIs, or webhook tokens.
+
+   Required variables:
+   - `DISCORD_TOKEN`
+   - `DISCORD_CLIENT_ID`
+   - `DISCORD_GUILD_ID`
+   - `DISCORD_APPLICATION_ID`
+   - `MONGO_URI`
+
+   Optional logging variables:
+   - `ERROR_WEBHOOK_URL`
+   - `GUILD_LOG_WEBHOOK_URL`
+   - `ANTINUKE_WEBHOOK_ID`
+   - `ANTINUKE_WEBHOOK_TOKEN`
+   - `GIVEAWAY_LOG_WEBHOOK_URL`
 
 5. **Start the Bot**  
    ```bash

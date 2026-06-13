@@ -1,5 +1,9 @@
 const { ClusterManager, HeartbeatManager } = require('discord-hybrid-sharding');
-const config = require("./config.json");
+const config = require("./config");
+
+if (!config.token) {
+  throw new Error("DISCORD_TOKEN/config.token is required to start shards.");
+}
 
 const manager = new ClusterManager(`./index.js`, {
   totalShards: 'auto',

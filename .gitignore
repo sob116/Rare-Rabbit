@@ -1,0 +1,4 @@
+node_modules/
+database/*.sqlite
+config.local.json
+npm-debug.log*

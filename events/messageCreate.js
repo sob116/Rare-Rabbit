@@ -47,6 +47,8 @@ async function handleCommand(client, message, args) {
     (await client.db14.get(
       `${message.guild.id}_mediachannels.mediachannellist`,
     )) || [];
+  const mediaBypass =
+    (await client.db14.get(`${message.guild.id}_mediachannels.mediabypasslist`)) || [];
   const missingBotPerms = command?.BotPerms || [];
 
   if (message.author.bot) return;
@@ -118,7 +120,7 @@ async function handleCommand(client, message, args) {
     );
   }
 
-  command.run(client, message, args);
+  await command.run(client, message, args);
   return;
 }
 
@@ -161,8 +163,8 @@ client.on("messageCreate", async (message) => {
     if (isBlacklisted) return;
 
     const prefix = await getPrefix(message.guild.id);
-    const data = await client.db4.get(`members_np`);
-    const noprefixed = data.noprefixlist;
+    const data = (await client.db4.get(`members_np`)) || { noprefixlist: [] };
+    const noprefixed = data.noprefixlist || [];
     const np = [...noprefixed];
 
     const args = getCommandAndArgs(message, prefix, noprefixed, np);

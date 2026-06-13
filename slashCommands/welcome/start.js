@@ -104,10 +104,12 @@ module.exports = {
                     if (i.customId === 'welcome_options') {
                         const selectedOption = i.values[0];
                         let modal;
+                        let modalCustomId;
 
                         if (selectedOption === 'channel') {
+                            modalCustomId = 'channel_modal';
                             modal = new ModalBuilder()
-                                .setCustomId('channel_modal')
+                                .setCustomId(modalCustomId)
                                 .setTitle('Set Welcome Channel')
                                 .addComponents(
                                     new ActionRowBuilder().addComponents(
@@ -118,8 +120,9 @@ module.exports = {
                                     )
                                 );
                         } else if (selectedOption === 'message') {
+                            modalCustomId = 'message_modal';
                             modal = new ModalBuilder()
-                                .setCustomId('message_modal')
+                                .setCustomId(modalCustomId)
                                 .setTitle('Set Welcome Message')
                                 .addComponents(
                                     new ActionRowBuilder().addComponents(
@@ -130,8 +133,9 @@ module.exports = {
                                     )
                                 );
                         } else if (selectedOption === 'image') {
+                            modalCustomId = 'image_modal';
                             modal = new ModalBuilder()
-                                .setCustomId('image_modal')
+                                .setCustomId(modalCustomId)
                                 .setTitle('Set Welcome Image')
                                 .addComponents(
                                     new ActionRowBuilder().addComponents(
@@ -144,6 +148,40 @@ module.exports = {
                         }
 
                         await i.showModal(modal);
+                        const modalInteraction = await i.awaitModalSubmit({
+                            filter: submitted => submitted.user.id === interaction.user.id && submitted.customId === modalCustomId,
+                            time: 60000,
+                        }).catch(() => null);
+
+                        if (!modalInteraction) return;
+
+                        if (modalInteraction.customId === 'channel_modal') {
+                            const channelId = modalInteraction.fields.getTextInputValue('channel_input');
+                            settings[guildId] = settings[guildId] || {};
+                            settings[guildId].channelId = channelId;
+                            writeSettings(settings);
+                            await modalInteraction.reply({ content: `Welcome channel set to: <#${channelId}>`, ephemeral: true });
+                        } else if (modalInteraction.customId === 'message_modal') {
+                            const message = modalInteraction.fields.getTextInputValue('message_input');
+                            settings[guildId] = settings[guildId] || {};
+                            settings[guildId].message = message;
+                            writeSettings(settings);
+                            await modalInteraction.reply({ content: `Welcome message set to: ${message}`, ephemeral: true });
+                        } else if (modalInteraction.customId === 'image_modal') {
+                            const imageUrl = modalInteraction.fields.getTextInputValue('image_input');
+                            const validExtensions = ['gif', 'png', 'jpeg', 'jpg'];
+                            const extension = imageUrl.split('.').pop().toLowerCase();
+
+                            if (!validExtensions.includes(extension)) {
+                                await modalInteraction.reply({ content: 'Invalid file type. Please provide a URL to a GIF, PNG, JPEG, or JPG image.', ephemeral: true });
+                                return;
+                            }
+
+                            settings[guildId] = settings[guildId] || {};
+                            settings[guildId].imageUrl = imageUrl;
+                            writeSettings(settings);
+                            await modalInteraction.reply({ content: `Welcome image set to: ${imageUrl}`, ephemeral: true });
+                        }
                     } else if (i.customId === 'save_reset') {
                         const action = i.values[0];
                         if (action === 'save') {
@@ -166,38 +204,6 @@ module.exports = {
                     }
                 });
             }
-
-            client.on('interactionCreate', async modalInteraction => {
-                if (!modalInteraction.isModalSubmit()) return;
-
-                if (modalInteraction.customId === 'channel_modal') {
-                    const channelId = modalInteraction.fields.getTextInputValue('channel_input');
-                    settings[guildId] = settings[guildId] || {};
-                    settings[guildId].channelId = channelId;
-                    writeSettings(settings);
-                    await modalInteraction.reply({ content: `Welcome channel set to: <#${channelId}>`, ephemeral: true });
-                } else if (modalInteraction.customId === 'message_modal') {
-                    const message = modalInteraction.fields.getTextInputValue('message_input');
-                    settings[guildId] = settings[guildId] || {};
-                    settings[guildId].message = message;
-                    writeSettings(settings);
-                    await modalInteraction.reply({ content: `Welcome message set to: ${message}`, ephemeral: true });
-                } else if (modalInteraction.customId === 'image_modal') {
-                    const imageUrl = modalInteraction.fields.getTextInputValue('image_input');
-                    const validExtensions = ['gif', 'png', 'jpeg', 'jpg'];
-                    const extension = imageUrl.split('.').pop().toLowerCase();
-
-                    if (!validExtensions.includes(extension)) {
-                        await modalInteraction.reply({ content: 'Invalid file type. Please provide a URL to a GIF, PNG, JPEG, or JPG image.', ephemeral: true });
-                        return;
-                    }
-
-                    settings[guildId] = settings[guildId] || {};
-                    settings[guildId].imageUrl = imageUrl;
-                    writeSettings(settings);
-                    await modalInteraction.reply({ content: `Welcome image set to: ${imageUrl}`, ephemeral: true });
-                }
-            });
 
         if (interaction.commandName === 'welcome' && interaction.options.getSubcommand() === 'variables') {
             const vara = new EmbedBuilder()

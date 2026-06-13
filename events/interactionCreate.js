@@ -212,6 +212,11 @@ function isBotOrDM(interaction) {
 }
 
 client.on('interactionCreate', async (interaction) => {
+	if (interaction.isButton() && interaction.customId.startsWith("ticket")) {
+		await client.ticketHandler.handleTicketInteraction(interaction);
+		return;
+	}
+
 	if (!interaction.isCommand()) return;
 	if (isBotOrDM(interaction)) return;
 

@@ -1,9 +1,10 @@
 const client = require('../index');
 const { ownerIDS } = require('../dev.json');
-const { WebhookClient, AuditLogEvent, Events } = require('discord.js');
-const config  = require('../config.json');
+const { AuditLogEvent, Events } = require('discord.js');
+const config  = require('../config');
+const { createWebhookClient, sendWebhookMessage } = require('../handler/webhookUtils');
 
-const webhookClient = new WebhookClient({
+const webhookClient = createWebhookClient({
   id: config.webid,
     token: config.webtoken
 });
@@ -195,7 +196,7 @@ async function handleWebhookUpdate(oldWebhook, newWebhook) {
 }
 
 function sendWebhookError(error) {
-  webhookClient.send(error).catch(() => { });
+  sendWebhookMessage(webhookClient, error);
 }
 
 client.on(Events.WebhooksUpdate, async (webhook) => handleWebhookCreate(webhook));

@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
-const config = require('../config.json');
+const config = require('../config');
 const { token, application_id } = config;
 const guild = null;
 
@@ -48,6 +48,11 @@ async function loadSlashCommands(client) {
 }
 
 async function registerSlashCommands(slashCommands) {
+  if (!token || !application_id) {
+    console.warn('Skipping global slash command registration; Discord token/application id config is missing.');
+    return;
+  }
+
   const rest = new REST({ version: '10' }).setToken(token);
   try {
     await rest.put(

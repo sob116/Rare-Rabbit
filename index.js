@@ -1,10 +1,9 @@
 const { Collection, EmbedBuilder } = require("discord.js");
 const Client = require("./rabbit/RabbitClient.js");
-const config = require("./config.json");
+const config = require("./config");
 const fs = require("fs");
 const path = require("path");
 const { QuickDB } = require("quick.db");
-const Dokdo = require("dokdo");
 const mongoose = require("mongoose");
 const { REST } = require("@discordjs/rest");
 const { Routes } = require("discord-api-types/v9");
@@ -14,23 +13,17 @@ const { Kazagumo, Plugins } = require("kazagumo");
 const KazagumoFilter = require("kazagumo-filter");
 const ytsr = require("@distube/ytsr");
 const SEARCH_DEFAULT = "youtube";
-const nodes = [
-    {
-      name: "rabbit",
-      url: "node.syntaxnodes.xyz:22040",
-      auth: "discord.gg/codersplanet",
-      secure: false,
-    },
-  ]
+const nodes = (config.nodes || [])
+  .filter((node) => node.host && node.port && node.password)
+  .map((node) => ({
+    name: node.identifier || node.host,
+    url: `${node.host}:${node.port}`,
+    auth: node.password,
+    secure: Boolean(node.secure),
+  }));
 // Initialize the client
 const client = new Client();
 module.exports = client;
-
-// Dokdo handler setup
-const DokdoHandler = new Dokdo.Client(client, {
-  aliases: ["dokdo", "dok", "jsk"],
-  prefix: ".",
-});
 
 // Function to setup databases
 function setupDatabases(client) {
@@ -110,10 +103,14 @@ for (const file of commandFiles) {
   commands.push(command.data.toJSON());
 }
 
-const rest = new REST({ version: "9" }).setToken(config.token);
-
 (async () => {
+  if (!config.token || !config.clientId || !config.guildId) {
+    console.warn("Skipping guild slash command refresh; Discord token/client/guild config is missing.");
+    return;
+  }
+
   try {
+    const rest = new REST({ version: "9" }).setToken(config.token);
     console.log("Started refreshing application (/) commands.");
 
     await rest.put(
@@ -197,48 +194,21 @@ client.on("messageDelete", (deletedMessage) => {
   snipes.set(deletedMessage.channel.id, deletedMessage);
 });
 
-// MongoDB connection
-mongoose
-  .connect(config.mongo, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => {
-    console.log("Kronix | Mongoose connected to MongoDB");
-  })
-  .catch((error) => {
-    console.error("Error: Failed to connect to MongoDB.", error);
-  });
-
-// Message handler for Dokdo
-client.on("messageCreate", async (message) => {
-  await DokdoHandler.run(message, snipes);
-});
-
-// Interaction handler
-client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isCommand() && !interaction.isButton()) return;
-
-  if (interaction.isCommand()) {
-    const command = client.commands.get(interaction.commandName);
-    if (!command) return;
-
-    try {
-      await command.execute(client, interaction);
-    } catch (error) {
-      console.error(error);
-      await interaction.reply({
-        content: "There was an error executing this command!",
-        ephemeral: true,
-      });
-    }
-  } else if (
-    interaction.isButton() &&
-    interaction.customId.startsWith("ticket")
-  ) {
-    await client.ticketHandler.handleTicketInteraction(interaction);
-  }
-});
+if (config.mongo) {
+  mongoose
+    .connect(config.mongo, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    })
+    .then(() => {
+      console.log("Kronix | Mongoose connected to MongoDB");
+    })
+    .catch((error) => {
+      console.error("Error: Failed to connect to MongoDB.", error);
+    });
+} else {
+  console.warn("Skipping MongoDB connection; MONGO_URI/config.mongo is missing.");
+}
 
 client.on("guildMemberAdd", async (member) => {
   const welcomeSettingsPath = path.join(
@@ -293,6 +263,10 @@ client.on("guildMemberAdd", async (member) => {
 });
 
 // Login to Discord
+if (!config.token) {
+  throw new Error("DISCORD_TOKEN/config.token is required to start the bot.");
+}
+
 client.login(config.token);
 
 client.manager.shoukaku.on("ready", (name) =>
