@@ -14,11 +14,12 @@ module.exports = {
     const user = message.mentions.members.first() || message.guild.members.cache.get(args[2]) || message.author;
     const ID = user.id
     const premium = await client.db12.get(`${message.guild.id}_premium`);
-    const extraOwner = await client.db11.get(`${message.guild.id}_eo.extraownerlist`);
+    const extraOwner = await client.db11.get(`${message.guild.id}_eo.extraownerlist`) || [];
+    const isServerOwner = message.guild.ownerId === message.author.id;
     let ownerLimit;
     let adminLimit;
 
-    if (premium.active === true) {
+    if (premium?.active === true) {
       ownerLimit = 100;
       adminLimit = 100;
     } else {
@@ -417,12 +418,12 @@ module.exports = {
 
     switch (args[0]) {
       case undefined:
-        if (!message.guild.ownerId.includes(message.author.id) && !ownerIDS.includes(message.author.id) && !extraOwner.includes(message.author.id)) {
+        if (!isServerOwner && !ownerIDS.includes(message.author.id) && !extraOwner.includes(message.author.id)) {
           return message.channel.send({ content: `Only Server Owner and Extra Owners Can Use This Command.` });
         }
         return message.channel.send({ embeds: [guide] });
       case 'owner':
-        if (!message.guild.ownerId.includes(message.author.id) && !ownerIDS.includes(message.author.id)) {
+        if (!isServerOwner && !ownerIDS.includes(message.author.id)) {
           return message.channel.send({ content: `Only Server Owner Can Use This Command.` });
         }
         if (args[1] === 'add') {
@@ -436,7 +437,7 @@ module.exports = {
         }
         break;
       case 'admin':
-        if (!message.guild.ownerId.includes(message.author.id) && !ownerIDS.includes(message.author.id) && !extraOwner.includes(message.author.id)) {
+        if (!isServerOwner && !ownerIDS.includes(message.author.id) && !extraOwner.includes(message.author.id)) {
           return message.channel.send({ content: `Only Server Owner and Extra Owners Can Use This Command.` });
         }
         if (args[1] === 'add') {

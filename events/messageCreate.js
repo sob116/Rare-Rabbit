@@ -1,8 +1,6 @@
 const client = require("../index.js");
 const st = require("../settings").bot;
 const { ownerIDS } = require("../dev.json");
-const { PermissionsBitField } = require("discord.js");
-
 function isServerOwnerOrBotOwner(message) {
   return (
     message.author.id === message.guild?.ownerId ||
@@ -10,7 +8,7 @@ function isServerOwnerOrBotOwner(message) {
   );
 }
 
-function getReadablePermissions(permissions) {
+function getReadablePermissions(permissions = []) {
   return permissions.map((perm) => `\`${perm}\``).join(", ");
 }
 
@@ -20,25 +18,30 @@ function isUserAboveBotRole(message) {
   return userRolePosition > botRolePosition;
 }
 
-async function isUserInblacklist(client, ID) {
+async function isUserInBlacklist(client, id) {
   const data = await client.db4.get(`members_bl`);
-  if (!data || !data.blacklist) return false;
-  return data.blacklist.includes(ID);
+  if (!data || !Array.isArray(data.blacklist)) return false;
+  return data.blacklist.includes(id);
+}
+
+async function getNoPrefixUsers(client) {
+  const data = await client.db4.get(`members_np`);
+  return Array.isArray(data?.noprefixlist) ? data.noprefixlist : [];
 }
 
 async function handleCommand(client, message, args) {
-  const cmd = args.shift().toLowerCase();
-  if (cmd.length == 0) return;
+  const cmd = args.shift()?.toLowerCase();
+  if (!cmd) return;
 
-  let command =
+  const command =
     client.commands.get(cmd) || client.commands.get(client.aliases.get(cmd));
+
+  if (message.author.bot || !command) return;
+
   const extraOwner =
     (await client.db11.get(`${message.guild.id}_eo.extraownerlist`)) || [];
   const extraAdmin =
     (await client.db11.get(`${message.guild.id}_ea.extraadminlist`)) || [];
-  const userHasAdminPerm = message.member.permissions.has(PermissionsBitField.Flags.Administrator);
-  const botHasAdminPerm = message.guild.members.me.permissions.has(PermissionsBitField.Flags.Administrator);
-  const channelId = message.channel.id;
   const ignoreChannels =
     (await client.db10.get(`${message.guild.id}_ic.ignorechannellist`)) || [];
   const ignoreBypass =
@@ -47,15 +50,20 @@ async function handleCommand(client, message, args) {
     (await client.db14.get(
       `${message.guild.id}_mediachannels.mediachannellist`,
     )) || [];
-  const missingBotPerms = command?.BotPerms || [];
+  const missingBotPerms = command.BotPerms || [];
+  const missingUserPerms = command.UserPerms || [];
+  const isBotOwner = ownerIDS.includes(message.author.id);
+  const isPrivilegedUser =
+    isServerOwnerOrBotOwner(message) ||
+    extraOwner.includes(message.author.id) ||
+    extraAdmin.includes(message.author.id);
 
-  if (message.author.bot) return;
-  if (!command) return;
-
-  if (mediaChannels.includes(channelId) && !mediaBypass.includes(message.author.id)) return;
+  if (mediaChannels.includes(message.channel.id)) {
+    return;
+  }
 
   if (
-    ignoreChannels.includes(channelId) &&
+    ignoreChannels.includes(message.channel.id) &&
     !ignoreBypass.includes(message.author.id)
   ) {
     const ignoreMessage = await message.channel.send(
@@ -63,6 +71,12 @@ async function handleCommand(client, message, args) {
     );
     setTimeout(() => ignoreMessage.delete().catch(console.error), 5000);
     return;
+  }
+
+  if (command.botOwner && !isBotOwner) {
+    return message.channel.send(
+      "This command can only be used by the bot owner.",
+    );
   }
 
   if (
@@ -87,39 +101,28 @@ async function handleCommand(client, message, args) {
   }
 
   if (
-    !isServerOwnerOrBotOwner(message) &&
-    botHasAdminPerm &&
-    !userHasAdminPerm &&
-    !extraOwner.includes(message.author.id) &&
-    !extraAdmin.includes(message.author.id)
+    !isPrivilegedUser &&
+    missingUserPerms.length > 0 &&
+    !message.member.permissions.has(missingUserPerms)
   ) {
-    const missingUserPerms = command.UserPerms || [];
-
-    if (
-      missingUserPerms.length > 0 &&
-      !message.member.permissions.has(missingUserPerms)
-    ) {
-      return message.channel.send(
-        `You need ${getReadablePermissions(
-          missingUserPerms,
-        )} permission(s) to use this command.`,
-      );
-    }
+    return message.channel.send(
+      `You need ${getReadablePermissions(
+        missingUserPerms,
+      )} permission(s) to use this command.`,
+    );
   }
 
   if (
     command.aboveRole &&
-    !isUserAboveBotRole(message) &&
-    !isServerOwnerOrBotOwner(message) &&
-    !extraOwner.includes(message.author.id)
+    !isPrivilegedUser &&
+    !isUserAboveBotRole(message)
   ) {
     return message.channel.send(
       "You need a role higher than the bot's role to use this command.",
     );
   }
 
-  command.run(client, message, args);
-  return;
+  await command.run(client, message, args);
 }
 
 async function getPrefix(guildId) {
@@ -130,7 +133,7 @@ function isBotOrDM(message) {
   return message.author.bot || !message.guild;
 }
 
-function getCommandAndArgs(message, prefix, noprefixed, np) {
+function getCommandAndArgs(message, prefix, noprefixed) {
   const regex = new RegExp(`^<@!?${client.user.id}>`);
   const pre = message.content.match(regex)
     ? message.content.match(regex)[0]
@@ -142,11 +145,10 @@ function getCommandAndArgs(message, prefix, noprefixed, np) {
   )
     return null;
 
-  return np.includes(message.author.id) === false
-    ? message.content.slice(pre.length).trim().split(/ +/)
-    : message.content.startsWith(pre)
-      ? message.content.slice(pre.length).trim().split(/ +/)
-      : message.content.trim().split(/ +/);
+  return noprefixed.includes(message.author.id) &&
+    !message.content.startsWith(pre)
+    ? message.content.trim().split(/ +/)
+    : message.content.slice(pre.length).trim().split(/ +/);
 }
 
 client.on("messageCreate", async (message) => {
@@ -157,15 +159,13 @@ client.on("messageCreate", async (message) => {
       return;
     }
 
-    const isBlacklisted = await isUserInblacklist(client, message.author.id);
+    const isBlacklisted = await isUserInBlacklist(client, message.author.id);
     if (isBlacklisted) return;
 
     const prefix = await getPrefix(message.guild.id);
-    const data = await client.db4.get(`members_np`);
-    const noprefixed = data.noprefixlist;
-    const np = [...noprefixed];
+    const noprefixed = await getNoPrefixUsers(client);
 
-    const args = getCommandAndArgs(message, prefix, noprefixed, np);
+    const args = getCommandAndArgs(message, prefix, noprefixed);
     if (args) {
       await handleCommand(client, message, args);
     }
