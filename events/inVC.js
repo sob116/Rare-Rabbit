@@ -1,9 +1,10 @@
 const client = require('../index.js');
-const { WebhookClient } = require('discord.js');
+const config = require('../config');
+const { createWebhookClient, sendWebhookMessage } = require('../handler/webhookUtils');
 
-const webhookClient = new WebhookClient({
-  id: '1198228168251818064',
-  token: 'iF7yhDPqc6SWMWPg34mE0ycephH_T8mK1reKKGdcp0sgkVnj5yR0iE0bUM3EUMnwk5ja'
+const webhookClient = createWebhookClient({
+  id: config.voiceWebhookId,
+  token: config.voiceWebhookToken
 });
 
 let globalCooldown = false;
@@ -74,5 +75,5 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 });
 
 function sendWebhookError(error) {
-  webhookClient.send(error).catch(() => { });
+  sendWebhookMessage(webhookClient, error);
 }

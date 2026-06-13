@@ -1,6 +1,6 @@
 const { Collection, EmbedBuilder } = require("discord.js");
 const Client = require("./rabbit/RabbitClient.js");
-const config = require("./config.json");
+const config = require("./config");
 const fs = require("fs");
 const path = require("path");
 const { QuickDB } = require("quick.db");
@@ -14,14 +14,12 @@ const { Kazagumo, Plugins } = require("kazagumo");
 const KazagumoFilter = require("kazagumo-filter");
 const ytsr = require("@distube/ytsr");
 const SEARCH_DEFAULT = "youtube";
-const nodes = [
-    {
-      name: "rabbit",
-      url: "node.syntaxnodes.xyz:22040",
-      auth: "discord.gg/codersplanet",
-      secure: false,
-    },
-  ]
+const nodes = config.nodes.map((node) => ({
+  name: node.identifier || node.name || "rabbit",
+  url: `${node.host}:${node.port}`,
+  auth: node.password,
+  secure: Boolean(node.secure),
+}));
 // Initialize the client
 const client = new Client();
 module.exports = client;

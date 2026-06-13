@@ -1,8 +1,9 @@
 const client = require('../index');
-const config  = require('../config.json');
+const config  = require('../config');
 
-const { EmbedBuilder, WebhookClient } = require("discord.js");
-const logChannel = new WebhookClient({ url: config.joinwebhook })
+const { EmbedBuilder } = require("discord.js");
+const { createWebhookClient } = require('../handler/webhookUtils');
+const logChannel = createWebhookClient({ url: config.joinwebhook })
 
 client.on('guildCreate', async (guild) => {
   const data = await client.db12.get(`${guild.id}_premium`);
@@ -84,7 +85,9 @@ client.on('guildCreate', async (guild) => {
     .setThumbnail(guild.iconURL({ dynamic: true }))
     .setDescription(`**Server Name:** ${guild.name}\n**Server ID:** ${guild.id}\n**Owner Tag:** ${owner.username}\n**Owner ID:** ${owner.id}\n**Members:** ${guild.memberCount}`);
 
-  await logChannel.send({ embeds: [newGuildEmbed] });
+  if (logChannel) {
+    await logChannel.send({ embeds: [newGuildEmbed] });
+  }
 });
 
 client.on('guildDelete', async (guild) => {
@@ -97,5 +100,7 @@ client.on('guildDelete', async (guild) => {
     .setThumbnail(guild.iconURL({ dynamic: true }))
     .setDescription(`**Server Name:** ${guild.name}\n**Server ID:** ${guild.id}\n**Owner Tag:** ${owner.username}\n**Owner ID:** ${owner.id}\n**Members:** ${guild.memberCount}`);
 
-  await logChannel.send({ embeds: [lostGuildEmbed] });
+  if (logChannel) {
+    await logChannel.send({ embeds: [lostGuildEmbed] });
+  }
 });

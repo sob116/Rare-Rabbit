@@ -1,5 +1,6 @@
 const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, PermissionFlagsBits } = require("discord.js");
 const Settings = require('../../settings.js');
+const config = require('../../config');
 const { TimestampBuilder } = require('discord-timestamp-generator');
 const axios = require('axios');
 const fs = require('fs');
@@ -19,10 +20,12 @@ module.exports = {
             return message.reply(`You need the \`Manage_Guild\` permission to create a giveaway.`);
         }
 
-        const webhookURL = 'https://discord.com/api/webhooks/1248701356408176703/g4zJXBBnHXJQ7ddG8LG0EkYUqOOTyl_z3n8Cy8xYyaqkUvExoJ6hoAmRvGDtaVu7iQ0a';
+        const webhookURL = config.giveawayWebhookUrl;
 
         // Function to send logs to Discord webhook
         async function sendToWebhook(logMessage) {
+            if (!webhookURL) return;
+
             try {
                 await axios.post(webhookURL, { content: logMessage });
             } catch (error) {

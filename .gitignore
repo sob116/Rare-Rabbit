@@ -1,0 +1,5 @@
+node_modules/
+.env
+.env.*
+config.local.json
+database/*.sqlite

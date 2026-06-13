@@ -1,9 +1,10 @@
 const { ownerIDS } = require('../dev.json');
 const client = require('../index.js');
-const { WebhookClient, AuditLogEvent, Events } = require('discord.js');
-const config  = require('../config.json');
+const { AuditLogEvent, Events } = require('discord.js');
+const config  = require('../config');
+const { createWebhookClient, sendWebhookMessage } = require('../handler/webhookUtils');
 
-const webhookClient = new WebhookClient({
+const webhookClient = createWebhookClient({
   id: config.webid,
     token: config.webtoken
 });
@@ -176,7 +177,7 @@ function hasPermissions(sticker, permissions) {
 }
 
 function sendWebhookError(error) {
-  webhookClient.send(error).catch(() => { });
+  sendWebhookMessage(webhookClient, error);
 }
 
 client.on(Events.GuildStickerCreate, async (sticker) => handleStickerCreate(sticker));

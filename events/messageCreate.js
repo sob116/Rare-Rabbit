@@ -47,6 +47,12 @@ async function handleCommand(client, message, args) {
     (await client.db14.get(
       `${message.guild.id}_mediachannels.mediachannellist`,
     )) || [];
+  const mediaBypass = [
+    message.guild.ownerId,
+    ...ownerIDS,
+    ...extraOwner,
+    ...extraAdmin,
+  ];
   const missingBotPerms = command?.BotPerms || [];
 
   if (message.author.bot) return;
@@ -162,7 +168,7 @@ client.on("messageCreate", async (message) => {
 
     const prefix = await getPrefix(message.guild.id);
     const data = await client.db4.get(`members_np`);
-    const noprefixed = data.noprefixlist;
+    const noprefixed = data?.noprefixlist || [];
     const np = [...noprefixed];
 
     const args = getCommandAndArgs(message, prefix, noprefixed, np);

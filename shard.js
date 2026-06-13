@@ -1,5 +1,5 @@
 const { ClusterManager, HeartbeatManager } = require('discord-hybrid-sharding');
-const config = require("./config.json");
+const config = require("./config");
 
 const manager = new ClusterManager(`./index.js`, {
   totalShards: 'auto',

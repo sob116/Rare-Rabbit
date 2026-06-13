@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
 const { REST } = require('@discordjs/rest');
 const { Routes } = require('discord-api-types/v9');
-const config = require('../config.json');
+const config = require('../config');
 const { token, application_id } = config;
 const guild = null;
 

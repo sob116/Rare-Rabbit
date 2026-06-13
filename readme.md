@@ -53,7 +53,14 @@ Rare Rabbit is an all-in-one Discord bot designed to elevate your server with AI
    ```
 
 4. **Set Up Your Environment**  
-   Configure the `config.js and settings.js` file with your bot credentials
+   Provide bot credentials through environment variables. At minimum configure:
+   - `DISCORD_TOKEN`
+   - `DISCORD_CLIENT_ID`
+   - `DISCORD_APPLICATION_ID`
+   - `DISCORD_GUILD_ID`
+   - `MONGO_URI`
+
+   Optional logging and Lavalink settings are read from `LOG_WEBHOOK_URL`, `JOIN_WEBHOOK_URL`, `SECURITY_WEBHOOK_ID`, `SECURITY_WEBHOOK_TOKEN`, `VOICE_WEBHOOK_ID`, `VOICE_WEBHOOK_TOKEN`, `GIVEAWAY_WEBHOOK_URL`, and the `LAVALINK_*` variables in `config.js`.
 
 5. **Start the Bot**  
    ```bash

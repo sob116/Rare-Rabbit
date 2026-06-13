@@ -1,23 +1,28 @@
-const prefix = process.env.prefix || '?'
+const config = require("./config");
+
+const prefix = process.env.BOT_PREFIX || process.env.prefix || "?";
+const clientId = config.clientId || "YOUR_CLIENT_ID";
 const status = `${prefix}help`;
 
 module.exports = {
   bot: {
     info: {
-      prefix: '?',
-      token: 'MTI0MjQ2MDMzMzAyNTc4NzkyNg.Gz5-zb.2S5q0vTByM3Y3BJKkDlLgWUl7hSYr6BMsoricY',
-      invLink: 'https://discord.com/api/oauth2/authorize?client_id=1242460333025787926&permissions=8&scope=bot%20applications.commands',
-      privacy: 'https://discord.gg/teamkronix',
-      terms: 'https://discord.gg/teamkronix',
+      prefix,
+      token: config.token,
+      invLink:
+        process.env.BOT_INVITE_LINK ||
+        `https://discord.com/api/oauth2/authorize?client_id=${clientId}&permissions=8&scope=bot%20applications.commands`,
+      privacy: process.env.PRIVACY_URL || 'https://discord.gg/teamkronix',
+      terms: process.env.TERMS_URL || 'https://discord.gg/teamkronix',
     },
     presence: {
       name: status,
       type: 'Listening',
-      url: 'https://discord.gg/teamkronix'
+      url: process.env.PRESENCE_URL || 'https://discord.gg/teamkronix'
     },
     credits: {
-      developerId: '747321055319949312',
-      supportServer: 'https://discord.gg/teamkronix'
+      developerId: process.env.DEVELOPER_ID || '747321055319949312',
+      supportServer: process.env.SUPPORT_SERVER_URL || 'https://discord.gg/teamkronix'
     },
   }
 }

@@ -1,9 +1,9 @@
-const { WebhookClient } = require("discord.js");
 const client = require("../index.js");
-const config = require("../config.json");
+const config = require("../config");
+const { createWebhookClient } = require("../handler/webhookUtils");
 
 const webhookUrl = config.webhook;
-const webhookClient = new WebhookClient({ url: webhookUrl });
+const webhookClient = createWebhookClient({ url: webhookUrl });
 
 client.on("error", (error) => {
   console.log(error);
