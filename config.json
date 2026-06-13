@@ -1,13 +1,13 @@
 {
-  "token": "MTI0MjQ2MDMzMzAyNTc4NzkyNg.Gz5-zb.2S5q0vTByM3Y3BJKkDlLgWUl7hSYr6BMsoricY",
-  "mongo": "mongodb+srv://Kronix1:arjun@cluster0.ob9wwsc.mongodb.net/?retryWrites=true&w=majority",
-  "clientId": "1242460333025787926",
-  "guildId": "1218617131164504225",
-  "application_id": "1242460333025787926",
-   "webhook": "https://discord.com/api/webhooks/1248701180922691594/YjtBPuA7jSPdmAtg1JX3XiLItnAJjSihcm3LSElQR8lqwjPyp6812wDuNrKR7_D_xdrb",
-  "joinwebhook": "https://discord.com/api/webhooks/1248701090606743592/hBS2ECGe5tXCweIjr2h6JY2icr6XPHQ82JI_OAw003RRi1VWK3SCsBKjK1_4hRNoVsb7",
-  "webid": "1230465363645435916",
-  "webtoken": "9IPYBA8pLx_ntVKeg4ECWFrNp06L-jZs6bXTCmKtaTwI93letoBEEGydKOt3uuHDYW4-",
+  "token": "YOUR_BOT_TOKEN",
+  "mongo": "YOUR_MONGODB_CONNECTION_STRING",
+  "clientId": "YOUR_CLIENT_ID",
+  "guildId": "YOUR_GUILD_ID",
+  "application_id": "YOUR_APPLICATION_ID",
+   "webhook": "",
+  "joinwebhook": "",
+  "webid": "",
+  "webtoken": "",
    "voice": "121861713164504229",
   "nodes": [
       {
