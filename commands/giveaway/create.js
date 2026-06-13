@@ -1,6 +1,5 @@
 const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, PermissionFlagsBits } = require("discord.js");
 const Settings = require('../../settings.js');
-const { TimestampBuilder } = require('discord-timestamp-generator');
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -54,9 +53,7 @@ module.exports = {
         }
 
         const endDate = new Date(Date.now() + time * 1000);
-        const timestamp = new TimestampBuilder()
-            .setTime(Math.floor(endDate.getTime() / 1000))
-            .generate();
+        const timestamp = `<t:${Math.floor(endDate.getTime() / 1000)}:R>`;
 
         const embed = new EmbedBuilder()
             .setTitle(`<a:Tada:1248895248457793577> ${prize} <a:Tada:1248895248457793577>`)

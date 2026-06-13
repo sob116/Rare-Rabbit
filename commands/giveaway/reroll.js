@@ -1,6 +1,5 @@
 const { EmbedBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder } = require("discord.js");
 const Settings = require('../../settings.js');
-const { TimestampBuilder } = require('discord-timestamp-generator');
 const fs = require('fs');
 const path = require('path');
 
