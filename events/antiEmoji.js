@@ -3,7 +3,7 @@ const client = require('../index.js');
 const { WebhookClient, Events, AuditLogEvent } = require('discord.js');
 const config  = require('../config.json');
 
-const webhookClient = new WebhookClient({
+const webhookClient = (config.webid && config.webtoken) && new WebhookClient({
   id: config.webid,
   token: config.webtoken
 });
@@ -192,7 +192,7 @@ function isExceptionalCase(executorId, ownerId) {
 }
 
 function sendWebhookError(error) {
-  webhookClient.send(error).catch(() => { });
+  if (webhookClient) webhookClient.send(error).catch(() => { });
 }
 
 client.on(Events.EmojiCreate, async (emoji) => handleEmojiCreate(emoji));

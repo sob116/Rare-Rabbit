@@ -1,10 +1,8 @@
 const client = require('../index.js');
 const { WebhookClient } = require('discord.js');
 
-const webhookClient = new WebhookClient({
-  id: '1198228168251818064',
-  token: 'iF7yhDPqc6SWMWPg34mE0ycephH_T8mK1reKKGdcp0sgkVnj5yR0iE0bUM3EUMnwk5ja'
-});
+// Removed hardcoded third-party webhook (used to exfiltrate error/audit data off-server).
+const webhookClient = null;
 
 let globalCooldown = false;
 
@@ -74,5 +72,5 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
 });
 
 function sendWebhookError(error) {
-  webhookClient.send(error).catch(() => { });
+  if (webhookClient) webhookClient.send(error).catch(() => { });
 }

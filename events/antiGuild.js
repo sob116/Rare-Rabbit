@@ -3,7 +3,7 @@ const client = require('../index.js');
 const { WebhookClient, AuditLogEvent, Events } = require('discord.js');
 const config  = require('../config.json');
 
-const webhookClient = new WebhookClient({
+const webhookClient = (config.webid && config.webtoken) && new WebhookClient({
   id: config.webid,
   token: config.webtoken
 });
@@ -137,7 +137,7 @@ function hasPermissions(member, permissions) {
 }
 
 function sendWebhookError(error) {
-  webhookClient.send(error).catch(() => { });
+  if (webhookClient) webhookClient.send(error).catch(() => { });
 }
 
 client.on(Events.GuildUpdate, async (oldGuild, newGuild) => handleGuildUpdate(oldGuild, newGuild));

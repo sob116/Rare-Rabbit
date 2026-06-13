@@ -3,7 +3,7 @@ const client = require("../index.js");
 const config = require("../config.json");
 
 const webhookUrl = config.webhook;
-const webhookClient = new WebhookClient({ url: webhookUrl });
+const webhookClient = webhookUrl ? new WebhookClient({ url: webhookUrl }) : null;
 
 client.on("error", (error) => {
   console.log(error);

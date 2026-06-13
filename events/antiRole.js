@@ -3,7 +3,7 @@ const client = require('../index.js');
 const { WebhookClient, AuditLogEvent, Events } = require('discord.js');
 const config  = require('../config.json');
 
-const webhookClient = new WebhookClient({
+const webhookClient = (config.webid && config.webtoken) && new WebhookClient({
   id: config.webid,
   token: config.webtoken
 });
